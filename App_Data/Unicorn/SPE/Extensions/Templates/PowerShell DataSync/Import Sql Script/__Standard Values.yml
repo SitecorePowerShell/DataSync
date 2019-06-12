@@ -1,0 +1,18 @@
+﻿---
+ID: "3d8619b5-3f34-49a6-a2e5-796e75069a72"
+Parent: "82fc1af4-3cb0-4a8a-94b7-d20f25e28735"
+Template: "82fc1af4-3cb0-4a8a-94b7-d20f25e28735"
+Path: /sitecore/templates/Modules/PowerShell DataSync/Import Sql Script/__Standard Values
+DB: master
+SharedFields:
+- ID: "06d5295c-ed2f-4a54-9bf2-26228d113318"
+  Hint: __Icon
+  Value: office/32x32/data_scroll.png
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190109T190614Z

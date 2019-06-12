@@ -1,0 +1,18 @@
+﻿---
+ID: "a3822171-2e25-43bb-8293-0d2223c9bc54"
+Parent: "286b8d8d-eead-48cb-87e2-4c4273f0a67e"
+Template: "286b8d8d-eead-48cb-87e2-4c4273f0a67e"
+Path: /sitecore/templates/Modules/PowerShell DataSync/Import Web Service Script/__Standard Values
+DB: master
+SharedFields:
+- ID: "06d5295c-ed2f-4a54-9bf2-26228d113318"
+  Hint: __Icon
+  Value: office/32x32/publish_item.png
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190109T190629Z

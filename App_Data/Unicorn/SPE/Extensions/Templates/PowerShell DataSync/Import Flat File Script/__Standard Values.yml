@@ -1,0 +1,18 @@
+﻿---
+ID: "e9dbd597-995b-4adc-9927-5ec96d58d79d"
+Parent: "5b9676bd-d65f-4f0f-a31e-318961a8dc86"
+Template: "5b9676bd-d65f-4f0f-a31e-318961a8dc86"
+Path: /sitecore/templates/Modules/PowerShell DataSync/Import Flat File Script/__Standard Values
+DB: master
+SharedFields:
+- ID: "06d5295c-ed2f-4a54-9bf2-26228d113318"
+  Hint: __Icon
+  Value: office/32x32/folder_document.png
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190109T190557Z

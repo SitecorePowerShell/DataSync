@@ -1,0 +1,50 @@
+﻿---
+ID: "d3fef36c-f4ad-4f60-83e9-f0d708e58168"
+Parent: "3298f7ca-0aba-4bca-8e26-f6b70760208b"
+Template: "dd22f1b3-bd87-4db2-9e7d-f7a496888d43"
+Path: /sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Toolbox/DataSync
+DB: master
+SharedFields:
+- ID: "06d5295c-ed2f-4a54-9bf2-26228d113318"
+  Hint: __Icon
+  Value: office/32x32/escalator_up.png
+- ID: "b1a94ff0-6897-47c0-9c51-aa6acb80b1f0"
+  Hint: Script
+  Value: |
+    $module = Get-SpeModule -Name DataSync
+    $importsRoot = Get-Item -Path "master:$($module.Path)/Imports"
+    $imports = $importsRoot.Children
+    
+    $options = [ordered]@{}
+    foreach($import in $imports) {
+        $options[$import.Name] = $import.ID
+    }
+    
+    $props = @{
+        Parameters = @(
+            @{Name="selectedImportSet"; Title="Choose an import set"; Tooltip="All imports defined within the set will be processed."; Options=$options; }
+        )
+        Title = "DataSync"
+        Icon = [regex]::Replace($PSScript.Appearance.Icon, "Office", "OfficeWhite", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        Description = "Choose a set of import scripts to process."
+        ShowHints = $true
+    }
+    
+    $result = Read-Variable @props
+    if($result -ne "ok") {
+        exit
+    }
+    
+    $importScripts = Get-ChildItem -Path "master:" -ID $selectedImportSet
+    $importScripts | ForEach-Object {
+        Write-Host "Peparing to run import $($_.Name)" -ForegroundColor Yellow
+        Invoke-Script -Item $_ -ArgumentList $_
+    }
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190116T155504Z

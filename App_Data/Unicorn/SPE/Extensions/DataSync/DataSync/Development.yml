@@ -1,0 +1,14 @@
+﻿---
+ID: "a5fdab53-7805-4b12-ae4e-37a8d831ab23"
+Parent: "819f0f13-6c01-44f0-990c-2a3e3e7d2017"
+Template: "ab154d3d-1126-4ab4-ac21-8b86e6bd70ea"
+Path: /sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Development
+DB: master
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190109T183142Z

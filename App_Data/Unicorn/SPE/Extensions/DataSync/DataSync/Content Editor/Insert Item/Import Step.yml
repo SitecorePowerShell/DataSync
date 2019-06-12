@@ -1,0 +1,104 @@
+﻿---
+ID: "dea7f20b-df4b-4c32-a35f-274d5419a50d"
+Parent: "28401f60-c5f3-44ac-9049-37be6225ea1e"
+Template: "dd22f1b3-bd87-4db2-9e7d-f7a496888d43"
+Path: /sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Content Editor/Insert Item/Import Step
+DB: master
+SharedFields:
+- ID: "06d5295c-ed2f-4a54-9bf2-26228d113318"
+  Hint: __Icon
+  Value: office/32x32/stairs_up.png
+- ID: "1c76313e-3c8c-4807-a826-135d10c39299"
+  Hint: ShowRule
+  Type: Rules
+  Value: |
+    <ruleset>
+      <rule
+        uid="{1F1EC4CB-F6E8-4FD4-8A40-63A6E524A54C}"
+        name="Show for children of Imports">
+        <conditions>
+          <and
+            uid="43A9B8A3A21847FEBEDC6A6D08AD33DE">
+            <condition
+              id="{7D5DA661-BEF9-441C-B1F7-D80DE3E0972F}"
+              uid="3CB26FA6F12B46DD89B3F59104B32B00"
+              itemid="{3AC2E23D-0296-4647-BE58-93E4D55CB8F6}" />
+            <condition
+              id="{4F5389E9-79B7-4FE1-A43A-EEA4ECD19C94}"
+              uid="06000EFECFD74B6A80AF7EC0DB0350B2"
+              except="true"
+              operatorid="{10537C58-1684-4CAB-B4C0-40C10907CE31}"
+              value="{3AC2E23D-0296-4647-BE58-93E4D55CB8F6}" />
+          </and>
+        </conditions>
+      </rule>
+    </ruleset>
+- ID: "b1a94ff0-6897-47c0-9c51-aa6acb80b1f0"
+  Hint: Script
+  Value: |
+    $defaultScript = '
+    param($ContextScript)
+    $importRunnerScriptItemId = "{CD9B18D5-0361-486F-9839-02FB9C3CFF7D}"
+    Get-Item -Path "master:" -ID $importRunnerScriptItemId | Invoke-Script -ArgumentList $ContextScript
+    '
+    
+    filter Where-InheritsTemplate {
+        param(
+            [Parameter(ValueFromPipeline = $true)]
+            [Item]$Item,
+            [ID]$TemplateId,
+            [switch]$DescendsOnly
+        )
+        
+        if($DescendsOnly -and $Item.ID -eq $TemplateId) { return }
+        $itemTemplate = [Sitecore.Data.Managers.TemplateManager]::GetTemplate($item.ID, $item.Database)
+        if($itemTemplate -and $itemTemplate.DescendsFromOrEquals($TemplateId)) { $Item }
+    }
+    
+    $importScriptTemplateId = [ID]::Parse("{3D772520-C232-4B3D-93B6-6941CDB3BF1D}")
+    $supportedTemplates = Get-ChildItem -Path "master:" -ID "{116571F4-6797-4825-B79D-FE88CA1C0E9B}" -Recurse |
+        Where-InheritsTemplate -TemplateId $importScriptTemplateId -DescendsOnly
+    $options = [ordered]@{}
+    $optionTooltips = [ordered]@{}
+    foreach($supportedTemplate in $supportedTemplates) {
+        $options[$supportedTemplate.Name] = $supportedTemplate.ID
+        $optionTooltips[$supportedTemplate.ID] = $supportedTemplate.Fields["__Short description"].Value
+    }
+    
+    $props = @{
+        Parameters = @(
+            @{Name="selectedTemplateId"; Title="Choose an import step"; Tooltip="Use the sort order to control sequence of execution."; Options=$options; OptionTooltips=$optionTooltips; Editor="combo"; },
+            @{Name="selectedItemName"; Title="Enter the name of import step"; Tooltip="The name helps to identify what the import process will perform."; Editor="text"; Validator = {
+                if([string]::IsNullOrEmpty($variable.Value)) {
+                    $variable.Error = "Please enter a name."
+                } elseif($variable.Value -notmatch [Sitecore.Configuration.Settings]::ItemNameValidation) {
+                    $variable.Error = "'$($variable.Value)' is not a valid name format."
+                } elseif($variable.Value.Length -gt [Sitecore.Configuration.Settings]::MaxItemNameLength) {
+                    $variable.Error = "'$($variable.Value)' is not a valid name length."
+                }
+            }}
+        )
+        Title = "Import Step Selector"
+        Icon = "OfficeWhite/32x32/stairs_up.png"
+        Description = "Choose an import step to add."
+        Width = 450
+        Height = 300
+        ShowHints = $true
+    }
+    
+    $result = Read-Variable @props
+    if($result -ne "ok") { exit }
+    
+    $parentItem = Get-Item -Path "."
+    $newItem = New-Item -Parent $parentItem -Name $selectedItemName -ItemType $selectedTemplateId
+    $newItem.Script = $defaultScript
+    Close-Window
+    
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190117T180910Z
