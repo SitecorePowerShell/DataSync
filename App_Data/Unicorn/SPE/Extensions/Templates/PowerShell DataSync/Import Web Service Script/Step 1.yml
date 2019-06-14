@@ -1,13 +1,9 @@
 ﻿---
-ID: "48d1b11e-a28d-48d7-a5d0-1fb81448b8d2"
+ID: "41987704-d4fd-43c4-ab2c-ed9a2183a583"
 Parent: "286b8d8d-eead-48cb-87e2-4c4273f0a67e"
 Template: "e269fbb5-3750-427a-9149-7aa950b49301"
 Path: /sitecore/templates/Modules/PowerShell DataSync/Import Web Service Script/Step 1
 DB: master
-SharedFields:
-- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
-  Hint: __Sortorder
-  Value: 10
 Languages:
 - Language: en
   Versions:
@@ -15,7 +11,7 @@ Languages:
     Fields:
     - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
       Hint: __Created
-      Value: 20190210T032716Z
+      Value: 20190208T165838Z
     - ID: "5dd74568-4d4b-44c1-b513-0af5f4cda34f"
       Hint: __Created by
       Value: |

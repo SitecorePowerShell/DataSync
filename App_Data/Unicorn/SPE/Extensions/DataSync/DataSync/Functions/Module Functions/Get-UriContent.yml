@@ -1,0 +1,61 @@
+﻿---
+ID: "2b7f00fd-6382-40ac-b27c-8289bcfe8b8d"
+Parent: "015d201e-8730-48ff-b7a7-279f05d82642"
+Template: "dd22f1b3-bd87-4db2-9e7d-f7a496888d43"
+Path: "/sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Functions/Module Functions/Get-UriContent"
+DB: master
+SharedFields:
+- ID: "b1a94ff0-6897-47c0-9c51-aa6acb80b1f0"
+  Hint: Script
+  Value: |
+    function Get-UriContent {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory=$true)]
+            [object]$sourcePath,
+            [object]$body,
+            [string]$method
+        )
+        
+        if ([string]::IsNullOrEmpty($method)) {
+            $method = "GET"
+        }
+        
+        if ($body) {
+            $response = Invoke-WebRequest -Uri $sourcePath -Method $method -Body $body
+        }
+        else {
+            $response = Invoke-WebRequest -Uri $sourcePath -Method $method
+        }
+        
+        $contentType = $response.Headers["Content-Type"]
+        
+        if([string]::IsNullOrEmpty($contentType)) { exit }
+        
+        $content = $response.Content
+        
+        if ($content -is [byte[]]) {
+            $content = [System.Text.Encoding]::UTF8.GetString($content)
+        }
+        
+        if($contentType -match "json") {
+            $sourceItems = $content | ConvertFrom-Json
+        } elseif($contentType -match "xml") {
+            $sourceItems = [xml]$content
+        } else {
+            $sourceItems = $content
+        }
+        
+        return $sourceItems
+    }
+- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
+  Hint: __Sortorder
+  Value: 600
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190226T155811Z

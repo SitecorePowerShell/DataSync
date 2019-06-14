@@ -1,0 +1,204 @@
+﻿---
+ID: "28e3fe10-a345-434c-9124-77a4d9fa717d"
+Parent: "015d201e-8730-48ff-b7a7-279f05d82642"
+Template: "dd22f1b3-bd87-4db2-9e7d-f7a496888d43"
+Path: "/sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Functions/Module Functions/Invoke-ProcessSourceItems"
+DB: master
+SharedFields:
+- ID: "b1a94ff0-6897-47c0-9c51-aa6acb80b1f0"
+  Hint: Script
+  Value: |
+    function Invoke-ProcessSourceItems(
+      $SourceItems,
+      $ScriptItem,
+      $FieldMappings,
+      $StatTracker
+    ) {
+        Write-Progress -Activity "Running pre import script" -Status $status
+        $beforeImportScript = $scriptItem.Fields[[FieldIds]::BeforeImportScript].Value
+        if(![string]::IsNullOrEmpty($beforeImportScript)) {
+            Invoke-Expression -Command $beforeImportScript
+        }
+        
+        if($sourceItems -isnot [array]) {
+            $sourceItemsTemp = $sourceItems
+            $sourceItems = [System.Collections.ArrayList]@()
+            $sourceItems.Add($sourceItemsTemp) > $null
+        }
+        
+        Write-Progress -Activity "Configuring import settings" -Status $status
+        
+        $itemSyncFieldName = $scriptItem.Fields[[FieldIds]::ItemSyncField].Value
+        $checkSyncField = $false
+        $skipExisting = [Sitecore.MainUtil]::GetBool($scriptItem.Fields[[FieldIds]::SkipExisting].Value, $false)
+        if(![string]::IsNullOrEmpty($itemSyncFieldName)) {
+            $checkSyncField = $true
+        }
+        
+        $destinationItemId = $scriptItem.Fields[[FieldIds]::DestinationPath].Value
+        $destinationRoot = Get-Item -Path "master:" -ID $destinationItemId
+        $syncFieldLookup = @{}
+        
+        if($checkSyncField) {
+            $existingItems = $destinationRoot.Axes.GetDescendants() | Where-Object { $_.TemplateId -eq $importTemplateId -and $($_.Language.Name) -eq $langCode } | Initialize-Item
+            foreach($existingItem in $existingItems) {
+                $existingItemSyncFieldValue = $existingItem.Fields[$itemSyncFieldName].Value
+                if(!$existingItemSyncFieldValue) {
+                    $member = Get-Member -InputObject $existingItem -Name $itemSyncFieldName
+                    if($member) {
+                        $existingItemSyncFieldValue = $existingItem.($member.Name)
+                    }
+                }
+                if([string]::IsNullOrEmpty($existingItemSyncFieldValue)) { continue }
+                $syncFieldLookup[$existingItemSyncFieldValue] = $existingItem
+            }
+        }
+        
+        $destinationItems = [System.Collections.ArrayList]@()
+        $count = 0
+        $countTotal = $sourceItems.Count
+        $skippedItemsCount = 0
+        $newItemsCount = 0
+        $existingItemsUpdatedCount = 0
+        $parentPathExpression = $scriptItem.Fields[[FieldIds]::ItemParentExpression].Value
+        
+        foreach($sourceItem in $sourceItems) {
+            $count++
+            Write-Host "$($timestamp) Processing source item $($count) of $($countTotal)"
+            $itemName = Invoke-Expression -Command $scriptItem.Fields[[FieldIds]::ItemName].Value
+            Write-Progress -Activity "Creating or updating destination items" -Status $status -PercentComplete ($count / $countTotal * 100) -CurrentOperation "$($itemName)"
+            $destinationItem = $null
+            if($checkSyncField -and $fieldMappings.ContainsKey($itemSyncFieldName)) {
+                $lookupValue = Invoke-Expression -Command $fieldMappings[$itemSyncFieldName]
+                if($syncFieldLookup.ContainsKey($lookupValue)) {
+                    if($skipExisting) { 
+                        Write-Host "- [S] Item found by matching field $($itemSyncFieldName)"
+                        $skippedItemsCount++
+                        continue
+                    }
+                    $destinationItem = $syncFieldLookup[$lookupValue]
+                }
+            }
+            
+            $path = "$($destinationRoot.ProviderPath)\$($itemName)"
+            if(![string]::IsNullOrEmpty($parentPathExpression)) {
+                $parentPath = Invoke-Expression -Command $parentPathExpression
+                $parentPath = "$($destinationRoot.ProviderPath)\$($parentPath.Trim('\','/'))"
+                $path = "$($parentPath)\$($itemName)"
+                $parentItem = Get-Item -Path $parentPath
+            } else {
+                $parentItem = $destinationRoot
+            }
+        
+            $langCode = "en"
+            
+            $langCodeScript = $scriptItem.Fields[[FieldIds]::LanguageScript].Value
+            if (![string]::IsNullOrEmpty($langCodeScript)) {
+                $langCode = Invoke-Expression -Command $langCodeScript
+            }
+            
+            $forceId = ""
+            $forceIdScript = $scriptItem.Fields[[FieldIds]::ForceIdScript].Value
+            if (![string]::IsNullOrEmpty($forceIdScript)) {
+                $forceId = Invoke-Expression -Command $forceIdScript
+            }
+            
+            if((Test-Path -Path $path)) {
+                Write-Host "- [!] Item exists at path $($path)"
+                $destinationItem = Get-Item -Path $path
+            }
+            
+            if(!$destinationItem -and $langCode -eq "en") {
+                Write-Host "- [A] $($path)"
+                $newItemsCount++
+                
+                if (![string]::IsNullOrEmpty($forceId)) {
+                    $destinationItem = New-Item -Parent $parentItem -Name $itemName -ItemType $importTemplateId -ForceId "{$($forceId)}"
+                }
+                else {
+                    $destinationItem = New-Item -Parent $parentItem -Name $itemName -ItemType $importTemplateId
+                }
+            } elseif (!$destinationItem) {
+                $lookupValue = Invoke-Expression -Command $fieldMappings[$itemSyncFieldName]
+                $existingEnglishItems = $destinationRoot.Axes.GetDescendants() | Where-Object { $_.TemplateId -eq $importTemplateId -and $($_.Language.Name) -eq "en" -and $_.Fields[$itemSyncFieldName].Value -eq $lookupValue }
+                
+                $existingEnglishItem = $existingEnglishItems | Select-Object -Index 0
+                
+                if ($existingEnglishItems.count -gt 1) {
+                    Write-Host "- [!] Multiple items for nid $($sourceItem.attributes.nid) location. Using Sitecore Item $($existingEnglishItem.ID)"
+                }
+            
+                if (!$existingEnglishItem) {
+                    $newItemsCount++
+                       
+                    if (![string]::IsNullOrEmpty($forceId)) {
+                        $existingEnglishItem = New-Item -Parent $parentItem -Name $itemName -ItemType $importTemplateId -ForceId "{$($forceId)}"
+                    }
+                    else {
+                        $existingEnglishItem = New-Item -Parent $parentItem -Name $itemName -ItemType $importTemplateId
+                    }
+                }
+                
+                Write-Host "- [A] $($path) - Language Version: $($langCode)"
+                $destinationItem = Add-ItemVersion -Item $existingEnglishItem -TargetLanguage $langCode
+            } else {
+                Write-Host "- [S] Item with the same name exists"
+                $existingItemsUpdatedCount++
+            }
+            
+            $displayName = $scriptItem.Fields[[FieldIds]::ItemDisplayName].Value
+            if(![string]::IsNullOrEmpty($displayName)) {
+                $displayName = Invoke-Expression -Command $displayName
+            }
+            
+            if (!$destinationItem) {
+                Write-Error "Destination Item was not properly created, likely due to name: '$itemName'"
+                return
+            }
+            
+            $destinationItem.Editing.BeginEdit()
+            if(![string]::IsNullOrEmpty($displayName)) {
+                $destinationItem[[Sitecore.FieldIDs]::DisplayName] = $displayName
+            }
+            foreach($fieldName in $fieldMappings.Keys) {
+                if($destinationItem.Fields[$fieldName]) {
+                    $fieldValue = Invoke-Expression -Command $fieldMappings[$fieldName]
+    
+                    $destinationItem.Fields[$fieldName].Value = $fieldValue
+                } else {
+                    Write-Host " - [S] $($fieldName) does not exist on the item"
+                }
+            }
+            
+            if(![string]::IsNullOrEmpty($scriptItem.Fields[[FieldIds]::ForEachItemScript].Value)) {
+                Invoke-Expression -Command $scriptItem.Fields[[FieldIds]::ForEachItemScript].Value
+            }
+            
+            $destinationItem.Editing.EndEdit() > $null
+            $destinationItems.Add($destinationItem) > $null
+        }
+        
+        Write-Progress -Activity "Running post import script" -Status $status
+        $afterImportScript = $scriptItem.Fields[[FieldIds]::AfterImportScript].Value
+        if(![string]::IsNullOrEmpty($afterImportScript)) {
+            Invoke-Expression -Command $afterImportScript
+        }
+        
+        $statTracker["Import items processed"] = $statTracker["Import items processed"] + $sourceItems.Count > $null
+        $statTracker["New items created"] = $statTracker["New items created"] + $newItemsCount > $null
+        $statTracker["Existing items skipped"] = $statTracker["Existing items skipped"] + $skippedItemsCount > $null
+        $statTracker["Existing items updated"] = $statTracker["Existing items updated"] + $existingItemsUpdatedCount > $null
+    
+        return $statTracker
+    }
+- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
+  Hint: __Sortorder
+  Value: 700
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190208T173119Z

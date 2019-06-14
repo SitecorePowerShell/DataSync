@@ -1,6 +1,6 @@
 ﻿---
 ID: "116571f4-6797-4825-b79d-fe88ca1c0e9b"
-Parent: "51e35b38-38ab-4b8c-b202-40d2f03b1056"
+Parent: "ff9edd61-8020-4b40-87a8-314972f2b5dc"
 Template: "a87a00b1-e6db-45ab-8b54-636fec3b5523"
 Path: /sitecore/templates/Modules/PowerShell DataSync
 DB: master
@@ -8,6 +8,9 @@ SharedFields:
 - ID: "06d5295c-ed2f-4a54-9bf2-26228d113318"
   Hint: __Icon
   Value: Office/32x32/folder.png
+- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
+  Hint: __Sortorder
+  Value: 200
 Languages:
 - Language: en
   Versions:

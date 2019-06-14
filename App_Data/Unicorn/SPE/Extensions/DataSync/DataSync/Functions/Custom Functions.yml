@@ -1,0 +1,18 @@
+﻿---
+ID: "3950ab30-fdf8-4149-9c2e-59c43ca9ad6f"
+Parent: "d3c93968-b343-4fa5-be29-0b7138359988"
+Template: "ab154d3d-1126-4ab4-ac21-8b86e6bd70ea"
+Path: /sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Functions/Custom Functions
+DB: master
+SharedFields:
+- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
+  Hint: __Sortorder
+  Value: 100
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190327T190416Z

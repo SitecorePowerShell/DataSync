@@ -1,0 +1,33 @@
+﻿---
+ID: "f5524dea-e2dd-48c6-aa4e-69e7dbd46175"
+Parent: "015d201e-8730-48ff-b7a7-279f05d82642"
+Template: "dd22f1b3-bd87-4db2-9e7d-f7a496888d43"
+Path: "/sitecore/system/Modules/PowerShell/Script Library/SPE/Extensions/DataSync/Functions/Module Functions/Get-SitecoreBoolValue"
+DB: master
+SharedFields:
+- ID: "b1a94ff0-6897-47c0-9c51-aa6acb80b1f0"
+  Hint: Script
+  Value: |
+    function Get-SitecoreBoolValue {
+        param(
+            $fieldValue
+        )
+        
+        if ($fieldValue -eq $true -or $fieldValue -eq 1 -or $fieldValue -eq "true") {
+            return "1"
+        }
+        else {
+            return "0"
+        }
+    }
+- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
+  Hint: __Sortorder
+  Value: 400
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190326T135050Z
