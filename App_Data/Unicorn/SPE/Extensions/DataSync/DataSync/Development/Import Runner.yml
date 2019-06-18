@@ -118,14 +118,14 @@ SharedFields:
                     $sourceItems = Get-Content -Path $sourcePath -Raw
                 }
                 
-                $statTracker = Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker $statTracker
+                Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker ([ref]$statTracker)
             }
             ([TemplateIds]::ImportSqlScript) {
                 # Sql Script
                 $query = $importScriptItem.Fields[[FieldIds]::SqlScript].Value
                 $sourceItems = Invoke-SqlCommand -Query $query -Connection $sourcePath
                 
-                $statTracker = Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker $statTracker
+                Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker ([ref]$statTracker)
             }
             ([TemplateIds]::ImportWebServiceScript) {
                 # Web service
@@ -151,7 +151,7 @@ SharedFields:
                     
                     $sourcePath = $nextPageSourcePath
                     
-                    $statTracker = Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker $statTracker
+                    Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker ([ref]$statTracker)
                 }
             }
             default {
@@ -167,7 +167,7 @@ SharedFields:
     Write-Host "$($timestamp) $($importScriptItem.Name) completed" -ForegroundColor Green
     $time = $watch.ElapsedMilliseconds / 1000
     
-    $statTracker["Execution time in seconds"] = $time > $null
+    $statTracker["Execution time in seconds"] = $time
     $statTracker | Format-List
     
     Write-Progress -Activity "Completed importing data for $($importScriptItem.Name)" -Completed -Status "Import Complete"
