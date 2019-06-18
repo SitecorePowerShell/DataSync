@@ -105,7 +105,7 @@ SharedFields:
             
             if((Test-Path -Path $path)) {
                 Write-Host "- [!] Item exists at path $($path)"
-                $destinationItem = Get-Item -Path $path
+                $destinationItem = Get-Item -Path $path -Language $langCode
             }
             
             if(!$destinationItem -and $langCode -eq "en") {
@@ -122,9 +122,8 @@ SharedFields:
                 $lookupValue = Invoke-Expression -Command $fieldMappings[$itemSyncFieldName]
                 $existingEnglishItems = $destinationRoot.Axes.GetDescendants() | Where-Object { $_.TemplateId -eq $importTemplateId -and $($_.Language.Name) -eq "en" -and $_.Fields[$itemSyncFieldName].Value -eq $lookupValue }
                 
-                $existingEnglishItem = $existingEnglishItems | Select-Object -Index 0
-                
                 if ($existingEnglishItems.count -gt 1) {
+                    $existingEnglishItem = $existingEnglishItems | Select-Object -Index 0                
                     Write-Host "- [!] Multiple items for nid $($sourceItem.attributes.nid) location. Using Sitecore Item $($existingEnglishItem.ID)"
                 }
             
