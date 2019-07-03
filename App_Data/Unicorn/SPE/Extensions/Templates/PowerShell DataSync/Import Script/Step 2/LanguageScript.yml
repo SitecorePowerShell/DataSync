@@ -1,0 +1,25 @@
+﻿---
+ID: "edd8dcb0-7eb3-48a6-9cb6-369de0cfe6b2"
+Parent: "660c300e-2415-453e-a6cb-fa8c5f010180"
+Template: "455a3e98-a627-4b40-8035-e683a0331ac7"
+Path: /sitecore/templates/Modules/PowerShell DataSync/Import Script/Step 2/LanguageScript
+DB: master
+SharedFields:
+- ID: "ab162cc0-dc80-4abf-8871-998ee5d7ba32"
+  Hint: Type
+  Value: "Multi-Line Text"
+- ID: "ba3f86a2-4a1c-4d78-b63d-91c2779c1b5e"
+  Hint: __Sortorder
+  Value: 500
+Languages:
+- Language: en
+  Fields:
+  - ID: "19a69332-a23e-4e70-8d16-b2640cb24cc8"
+    Hint: Title
+    Value: "Script to get language code for item - if set, will attempt to create a language version of item, instead of always creating a new item"
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20190211T175118Z

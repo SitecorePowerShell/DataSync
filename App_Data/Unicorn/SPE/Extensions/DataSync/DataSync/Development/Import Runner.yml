@@ -13,14 +13,17 @@ SharedFields:
         $Watch = [System.Diagnostics.Stopwatch]::StartNew()
     )
     
+    Import-Function -Name Invoke-SqlCommand
     Import-Function -Name New-ItemName
-    Import-Function -Name Invoke-SourceRequest
+    Import-Function -Name Get-UriContent
+    Import-Function -Name Invoke-ProcessSourceItems
     
     class FieldIds {
         static [ID]$SourcePath = "{07476EF8-B3B6-46A1-82D7-0E793E7BA658}"
         static [ID]$SqlScript = "{53B07925-8E6B-49E5-B58D-F8E2B0489EFE}"
         static [ID]$BeforeImportScript = "{2B47ED82-A477-4D3B-AE17-FC1B64D54440}"
         static [ID]$ImportTemplate = "{66103474-141A-4CD7-BC64-3E7CF0858441}"
+        static [ID]$ForceIdScript = "{B0A60B70-8A87-4526-ABF4-62A721961217}"
         static [ID]$ItemName = "{FAC6C69F-07F1-4801-9CB8-2DCB77AFC71D}"
         static [ID]$ItemDisplayName = "{6D7F51CA-56E5-4E30-8735-CDF77BEABEDE}"
         static [ID]$FieldMapping = "{C1561963-9C44-444B-9002-732147905DA2}"
@@ -30,7 +33,9 @@ SharedFields:
         static [ID]$DestinationPath = "{CFBA481F-6001-4C0F-A1FC-2FB0CE049F9C}"
         static [ID]$ItemParentExpression = "{35DE0F36-FC21-4F02-BC7F-9B3D2BCAA6EC}"
         static [ID]$AfterImportScript = "{5721604B-75FF-46A7-984D-6A6F8E8BF4AB}"
-        static [ID]$PaginationScript = "{E7D5151C-808C-4DB2-A0AE-EBCB662C15C7}"
+        static [ID]$NextPageScript = "{F23573B3-33F2-4448-B213-93B8607A9612}"
+        static [ID]$LanguageScript = "{EDD8DCB0-7EB3-48A6-9CB6-369DE0CFE6B2}"
+        static [ID]$GenerateHeadersScript = "{3E3448F8-5D08-45D9-BC45-73040EA1711C}"
     }
     
     class TemplateIds {
@@ -68,7 +73,8 @@ SharedFields:
     foreach($importFieldMapping in $importFieldMappings) {
         $split = $importFieldMapping -split "="
         if($split -and $split.Length -le 2) {
-            $importFieldMappingsLookup[$split[0]] = $split[1]
+            $fieldName = $split[0].Replace("_", " ")
+            $importFieldMappingsLookup[$fieldName] = $split[1]
         }
     }
     
@@ -80,181 +86,89 @@ SharedFields:
     Write-Host "$($timestamp) Selecting import script $($importScriptItem.TemplateId)"
     $sourceItems = @()
     $loadFromSource = $true
-    if($lastImportScriptId -ne $importScriptItem.ID -and $lastSourcePath -and $lastSourcePath -eq $sourcePath) {
-        if($lastImport) {
-            Write-Host "$($timestamp) Reusing last items loaded from source"
-            $sourceItems = $lastImport
-            $loadFromSource = $false
-        }
+    #if($lastSourcePath -and $lastSourcePath -eq $sourcePath) {
+    #    if($lastImport) {
+    #        Write-Host "$($timestamp) Reusing last items loaded from source"
+    #        $sourceItems = $lastImport
+    #        $loadFromSource = $false
+    #    }
+    #}
+    
+    $statTracker = @{
+        "Import items processed" = 0
+        "New items created" = 0
+        "Existing items skipped" = 0
+        "Existing items updated" = 0
+        "Execution time in seconds" = 0
     }
     
-    $beforeImportScript = $importScriptItem.Fields[[FieldIds]::BeforeImportScript].Value
-    $paginationScript = $importScriptItem.Fields[[FieldIds]::PaginationScript].Value    
     if($loadFromSource) {
-        Write-Host "$($timestamp) Loading items from source"
-        Write-Host "$($timestamp) Source $($sourcePath)"
-        $lastResult = Invoke-SourceRequest -ImportItem $importScriptItem -SourcePath $sourcePath
-    
-        if($lastResult) {
-            $sourceItems += $lastResult
-        }
-        
-        if($lastResult -and ![string]::IsNullOrEmpty($paginationScript)) {
-    
-            while($true) {
-                Write-Progress -Activity "Running pagination script" -Status $status
-                $pagedSourcePath = Invoke-Expression -Command $paginationScript
-                if([string]::IsNullOrEmpty($pagedSourcePath)) { break }
-                Write-Host "$($timestamp) Pagination source $($pagedSourcePath)"
-                $lastResult = Invoke-SourceRequest -ImportItem $importScriptItem -SourcePath $pagedSourcePath
-                if($lastResult) {
-                    $sourceItems += $lastResult
+        switch($importScriptItem.TemplateId) {
+            ([TemplateIds]::ImportFlatFileScript) {
+                # Flat File
+                $extension = [System.IO.Path]::GetExtension($sourcePath)
+                if([string]::IsNullOrEmpty($extension)) { exit }
+                if($extension -eq ".csv") {
+                    $sourceItems = Import-Csv -Path $sourcePath
+                } elseif ($extension -eq ".xml") {
+                    $sourceItems = [xml](Get-Content -Path $sourcePath -Raw)
+                } elseif ($extension -eq ".json") {
+                    $sourceItems = (Get-Content -Path $sourcePath -Raw) | ConvertFrom-Json
                 } else {
-                    break
+                    $sourceItems = Get-Content -Path $sourcePath -Raw
                 }
+                
+                Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker ([ref]$statTracker)
+            }
+            ([TemplateIds]::ImportSqlScript) {
+                # Sql Script
+                $query = $importScriptItem.Fields[[FieldIds]::SqlScript].Value
+                $sourceItems = Invoke-SqlCommand -Query $query -Connection $sourcePath
+                
+                Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker ([ref]$statTracker)
+            }
+            ([TemplateIds]::ImportWebServiceScript) {
+                # Web service
+                if (![Net.ServicePointManager]::SecurityProtocol.HasFlag([Net.SecurityProtocolType]::Tls12)) {
+                    [Net.ServicePointManager]::SecurityProtocol += [Net.SecurityProtocolType]::Tls12
+                }
+    
+                $generateHeadersScript = $importScriptItem.Fields[[FieldIds]::GenerateHeadersScript].Value
+                if (![string]::IsNullOrEmpty($generateHeadersScript)) {
+                   $PSDefaultParameterValues = Invoke-Expression -Command $generateHeadersScript
+                }
+                
+                while (![string]::IsNullOrEmpty($sourcePath)) {
+                    $sourceItems = Get-UriContent -sourcePath $sourcePath
+                    
+                    $nextPageSourcePath = "";
+                    
+                    Write-Progress -Activity "Running next page script" -Status $status
+                    $nextPageScript = $importScriptItem.Fields[[FieldIds]::NextPageScript].Value
+                    if(![string]::IsNullOrEmpty($nextPageScript)) {
+                        $nextPageSourcePath = Invoke-Expression -Command $nextPageScript
+                    }
+                    
+                    $sourcePath = $nextPageSourcePath
+                    
+                    Invoke-ProcessSourceItems -SourceItems $sourceItems -ScriptItem $importScriptItem -FieldMappings $importFieldMappingsLookup -StatTracker ([ref]$statTracker)
+                }
+            }
+            default {
+                Write-Host "Unable to complete because the import script is unrecognized." -ForegroundColor White -BackgroundColor Red
+                exit
             }
         }
         
-        if($sourceItems -and $sourceItems -isnot [array]) {
-            $sourceItemsTemp = $sourceItems
-            $sourceItems = [System.Collections.ArrayList]@()
-            $sourceItems.Add($sourceItemsTemp) > $null
-        }
-        
-        if(![string]::IsNullOrEmpty($beforeImportScript)) {
-            Write-Progress -Activity "Running pre import script" -Status $status
-            Invoke-Expression -Command $beforeImportScript
-        }
-        
-        $lastImportScriptId = $importScriptItem.ID
         $lastSourcePath = $sourcePath
         $lastImport = $sourceItems
-    } else {
-        if(![string]::IsNullOrEmpty($beforeImportScript)) {
-            Write-Progress -Activity "Running pre import script" -Status $status
-            Invoke-Expression -Command $beforeImportScript
-        }
-    }
-    
-    if($sourceItems -isnot [array]) {
-        $sourceItemsTemp = $sourceItems
-        $sourceItems = [System.Collections.ArrayList]@()
-        $sourceItems.Add($sourceItemsTemp) > $null
-    }
-    
-    Write-Progress -Activity "Configuring import settings" -Status $status
-    $itemSyncFieldName = $importScriptItem.Fields[[FieldIds]::ItemSyncField].Value
-    $checkSyncField = $false
-    $skipExisting = [Sitecore.MainUtil]::GetBool($importScriptItem.Fields[[FieldIds]::SkipExisting].Value, $false)
-    if(![string]::IsNullOrEmpty($itemSyncFieldName)) {
-        $checkSyncField = $true
-    }
-    
-    $destinationItemId = $importScriptItem.Fields[[FieldIds]::DestinationPath].Value
-    $destinationRoot = Get-Item -Path "master:" -ID $destinationItemId
-    $syncFieldLookup = @{}
-    if($checkSyncField) {
-        $existingItems = $destinationRoot.Axes.GetDescendants() | Where-Object { $_.TemplateId -eq $importTemplateId } | Initialize-Item
-        foreach($existingItem in $existingItems) {
-            $existingItemSyncFieldValue = $existingItem.Fields[$itemSyncFieldName].Value
-            if(!$existingItemSyncFieldValue) {
-                $member = Get-Member -InputObject $existingItem -Name $itemSyncFieldName
-                if($member) {
-                    $existingItemSyncFieldValue = $existingItem.($member.Name)
-                }
-            }
-            if([string]::IsNullOrEmpty($existingItemSyncFieldValue)) { continue }
-            $syncFieldLookup[$existingItemSyncFieldValue] = $existingItem
-        }
-    }
-    
-    $destinationItems = [System.Collections.ArrayList]@()
-    $count = 0
-    $countTotal = $sourceItems.Count
-    $skippedItemsCount = 0
-    $newItemsCount = 0
-    $existingItemsUpdatedCount = 0
-    $parentPathExpression = $importScriptItem.Fields[[FieldIds]::ItemParentExpression].Value
-    foreach($sourceItem in $sourceItems) {
-        $count++
-        Write-Host "$($timestamp) Processing source item $($count) of $($countTotal)"
-        $itemName = Invoke-Expression -Command $importScriptItem.Fields[[FieldIds]::ItemName].Value
-        Write-Progress -Activity "Creating or updating destination items" -Status $status -PercentComplete ($count / $countTotal * 100) -CurrentOperation "$($itemName)"
-        $destinationItem = $null
-        if($checkSyncField -and $importFieldMappingsLookup.ContainsKey($itemSyncFieldName)) {
-            $lookupValue = Invoke-Expression -Command $importFieldMappingsLookup[$itemSyncFieldName]
-            if($lookupValue -and $syncFieldLookup.ContainsKey($lookupValue)) {
-                if($skipExisting) { 
-                    Write-Host "- [S] Item found by matching field $($itemSyncFieldName)"
-                    $skippedItemsCount++
-                    continue
-                }
-                $destinationItem = $syncFieldLookup[$lookupValue]
-            }
-        }
-        
-        $path = "$($destinationRoot.ProviderPath)\$($itemName)"
-        if(![string]::IsNullOrEmpty($parentPathExpression)) {
-            $parentPath = Invoke-Expression -Command $parentPathExpression
-            $parentPath = "$($destinationRoot.ProviderPath)\$($parentPath.Trim('\','/'))"
-            $path = "$($parentPath)\$($itemName)"
-            $parentItem = Get-Item -Path $parentPath
-        } else {
-            $parentItem = $destinationRoot
-        }
-    
-        if((Test-Path -Path $path)) {
-            Write-Host "- [!] Item exists at path $($path)"
-            $destinationItem = Get-Item -Path $path
-        }
-        if(!$destinationItem) {
-            Write-Host "- [A] $($path)"
-            $newItemsCount++
-            $destinationItem = New-Item -Parent $parentItem -Name $itemName -ItemType $importTemplateId
-        } else {
-            Write-Host "- [S] Item with the same name exists"
-            $existingItemsUpdatedCount++
-        }
-        
-        $displayName = $importScriptItem.Fields[[FieldIds]::ItemDisplayName].Value
-        if(![string]::IsNullOrEmpty($displayName)) {
-            $displayName = Invoke-Expression -Command $displayName
-        }
-        $destinationItem.Editing.BeginEdit()
-        if(![string]::IsNullOrEmpty($displayName)) {
-            $destinationItem[[Sitecore.FieldIDs]::DisplayName] = $displayName
-        }
-        foreach($fieldName in $importFieldMappingsLookup.Keys) {
-            if($destinationItem.Fields[$fieldName]) {
-                $destinationItem.Fields[$fieldName].Value = Invoke-Expression -Command $importFieldMappingsLookup[$fieldName]
-            } else {
-                Write-Host " - [S] $($fieldName) does not exist on the item"
-            }
-        }
-        
-        if(![string]::IsNullOrEmpty($importScriptItem.Fields[[FieldIds]::ForEachItemScript].Value)) {
-            Invoke-Expression -Command $importScriptItem.Fields[[FieldIds]::ForEachItemScript].Value
-        }
-        
-        $destinationItem.Editing.EndEdit() > $null
-        $destinationItems.Add($destinationItem) > $null
-    }
-    
-    Write-Progress -Activity "Running post import script" -Status $status
-    $afterImportScript = $importScriptItem.Fields[[FieldIds]::AfterImportScript].Value
-    if(![string]::IsNullOrEmpty($afterImportScript)) {
-        Invoke-Expression -Command $afterImportScript
     }
     
     Write-Host "$($timestamp) $($importScriptItem.Name) completed" -ForegroundColor Green
     $time = $watch.ElapsedMilliseconds / 1000
-    [PSCustomObject]@{
-        "Import items processed" = $sourceItems.Count
-        "New items created" = $newItemsCount
-        "Existing items skipped" = $skippedItemsCount
-        "Existing items updated" = $existingItemsUpdatedCount
-        "Execution time in seconds" = $time
-    } | Format-List
+    
+    $statTracker["Execution time in seconds"] = $time
+    $statTracker | Format-List
     
     Write-Progress -Activity "Completed importing data for $($importScriptItem.Name)" -Completed -Status "Import Complete"
     
