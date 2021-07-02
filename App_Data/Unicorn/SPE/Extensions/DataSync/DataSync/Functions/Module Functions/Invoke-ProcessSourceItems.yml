@@ -38,6 +38,12 @@ SharedFields:
         $destinationItemId = $scriptItem.Fields[[FieldIds]::DestinationPath].Value
         $destinationRoot = Get-Item -Path "master:" -ID $destinationItemId
         $syncFieldLookup = @{}
+        $langCode = "en"
+            
+        $langCodeScript = $scriptItem.Fields[[FieldIds]::LanguageScript].Value
+        if (![string]::IsNullOrEmpty($langCodeScript)) {
+            $langCode = Invoke-Expression -Command $langCodeScript
+        }
         
         if($checkSyncField) {
             $existingItems = $destinationRoot.Axes.GetDescendants() | Where-Object { $_.TemplateId -eq $importTemplateId -and $($_.Language.Name) -eq $langCode } | Initialize-Item
@@ -85,16 +91,13 @@ SharedFields:
                 $parentPath = Invoke-Expression -Command $parentPathExpression
                 $parentPath = "$($destinationRoot.ProviderPath)\$($parentPath.Trim('\','/'))"
                 $path = "$($parentPath)\$($itemName)"
-                $parentItem = Get-Item -Path $parentPath
+                if (Test-Path -Path $path) {
+                    $parentItem = Get-Item -Path $parentPath
+                } else {
+                    $parentItem = $destinationRoot
+                }
             } else {
                 $parentItem = $destinationRoot
-            }
-        
-            $langCode = "en"
-            
-            $langCodeScript = $scriptItem.Fields[[FieldIds]::LanguageScript].Value
-            if (![string]::IsNullOrEmpty($langCodeScript)) {
-                $langCode = Invoke-Expression -Command $langCodeScript
             }
             
             $forceId = ""
